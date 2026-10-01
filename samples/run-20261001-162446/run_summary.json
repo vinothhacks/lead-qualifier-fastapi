@@ -1,0 +1,46 @@
+{
+  "run_id": "run-20261001-162446",
+  "leads": {
+    "total": 40,
+    "qualified": 40,
+    "not_qualified_by_reason": {},
+    "qualified_by_intent": {
+      "demo_request": 15,
+      "job_or_internship": 2,
+      "partnership": 3,
+      "pricing_enquiry": 9,
+      "product_enquiry": 8,
+      "spam": 2,
+      "unsubscribe": 1
+    }
+  },
+  "cost": {
+    "llm_calls": 40,
+    "prompt_tokens": 25934,
+    "completion_tokens": 5600,
+    "total_tokens": 31534,
+    "total_cost_usd": 0.00456,
+    "wasted_cost_usd": 0,
+    "calls_with_unknown_cost": 0,
+    "avg_cost_per_lead_usd": 0.000114,
+    "avg_calls_per_lead": 1.0,
+    "avg_tokens_per_lead": 788,
+    "by_model": {
+      "z-ai/glm-5.3-flash": {
+        "calls": 40,
+        "valid": 40,
+        "invalid_output": 0,
+        "errors": 0,
+        "prompt_tokens": 25934,
+        "completion_tokens": 5600,
+        "cost_usd": 0.00456
+      }
+    },
+    "projection": {
+      "leads_per_month": 8000,
+      "calls_per_month": 8000,
+      "tokens_per_month": 6306800,
+      "cost_per_month_usd_at_this_runs_rates": 0.91
+    }
+  }
+}
