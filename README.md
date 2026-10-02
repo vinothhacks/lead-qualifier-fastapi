@@ -4,12 +4,18 @@
 
 `scripts/run_batch.py` sends the CSV one row per request and writes the salesperson's review sheet. **Nothing is ever sent to a lead.** The data in `data/leads.csv` is synthetic: emails use the reserved `.example` domain and phone numbers are placeholders.
 
+Public repository: https://github.com/vinothhacks/lead-qualifier-fastapi
+
+No API key is required to check this repository. [GitHub Actions](https://github.com/vinothhacks/lead-qualifier-fastapi/actions) runs `pytest` on every push (`.github/workflows/test.yml`) and stores no secrets. The tests call the real API; only the LLM HTTP endpoint is a scripted fake. `.env` is gitignored, so a live OpenRouter key never enters the public repo.
+
 ```bash
 python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
-cp .env.example .env                       # add OPENROUTER_API_KEY, LEADS_API_TOKEN, CONTACT_HASH_SECRET
-uvicorn app.main:app --port 8000           # docs at http://localhost:8000/docs
-LEADS_API_TOKEN=... python scripts/run_batch.py   # → samples/<run_id>/review.csv, quarantine.csv, run_summary.json
-pytest -q                                  # offline: the LLM endpoint is a scripted fake
+pytest -q                                  # this is the public check; no key, no network
+
+# Optional live run, with your own key kept only in .env:
+# cp .env.example .env                     # OPENROUTER_API_KEY, LEADS_API_TOKEN, CONTACT_HASH_SECRET
+# uvicorn app.main:app --port 8000         # docs at http://localhost:8000/docs
+# python scripts/run_batch.py              # → samples/<run_id>/review.csv, quarantine.csv, run_summary.json
 ```
 
 ## Design decisions
@@ -60,7 +66,7 @@ pytest -q                                  # offline: the LLM endpoint is a scri
 1. **Data protection.** Use a paid model with `LLM_DATA_COLLECTION=deny` or zero data retention, plus a data processing agreement. Set retention and access control for outputs (DPDP Act). Keep secrets in a secret manager.
 2. **Measure before trusting the scores.** Have sales label 200–300 leads, and track intent accuracy and how often the score agrees with sales. Re-run that set on every prompt or model change.
 3. **Go asynchronous.** Have the endpoint enqueue the lead and return `202` (Redis or SQS plus workers). Write drafts to the CRM as tasks. Move SQLite to Postgres, because the run store, rate limiter and circuit breaker are per-process today.
-4. **Model cost isn't the constraint.** I estimate about 1,200 tokens per lead including retries, roughly 10M tokens a month. That's about $1.50 at $0.10/$0.40 per million tokens, or about $55 at $3/$15. The free tier can't carry this volume (50 or 1,000 requests a day, and models rotate). Pick the model for accuracy, and cache the fixed system prompt.
+4. **Model cost isn't the constraint.** I estimate about 1,200 tokens per lead including retries, roughly 10M tokens a month. That's about $1.50 at $0.10/$0.40 per million tokens. The free tier can't carry this volume (50 or 1,000 requests a day, and models rotate). Pick the model for accuracy, and cache the fixed system prompt.
 5. **Better PII detection, observability and deduplication.** Use named-entity detection (for example Presidio) for names. Add metrics and alerts on the invalid-output rate, fallback rate and cost per lead. Deduplicate against CRM history.
 
 ## Known limitations

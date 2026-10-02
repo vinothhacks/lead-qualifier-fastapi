@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_api_key: SecretStr = SecretStr("")
     llm_api_key: SecretStr = SecretStr("")          # takes precedence if set
-    # Primary first, then fallbacks in order. Free models rotate: check openrouter.ai/models.
-    llm_models: str = "google/gemma-4-31b-it:free,nvidia/nemotron-3.5-lightning:free,openrouter/free"
+    # Primary first, then fallbacks in order.
+    llm_models: str = "z-ai/glm-5.3-flash,nex-agi/nex-n2.5-mini"
     llm_temperature: float = 0.2
     llm_max_tokens: int = 700                         # hard cap on output spend per call
     llm_timeout_s: float = 60.0
