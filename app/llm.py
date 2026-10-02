@@ -33,8 +33,8 @@ class LLMClient:
             body["response_format"] = response_format
         if self.s.is_openrouter:
             body["provider"] = {"data_collection": self.s.llm_data_collection}  # strict APIs reject unknown fields
-            # ponytail: reasoning models share max_tokens between thinking and answer;
-            # low effort + exclude keeps the JSON answer from coming back empty.
+            # Reasoning models share max_tokens between thinking and the answer.
+            # Low effort, with reasoning excluded, keeps the JSON answer from coming back empty.
             body["reasoning"] = {"effort": "low", "exclude": True}
 
         await self.limiter.wait()

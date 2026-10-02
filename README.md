@@ -56,6 +56,58 @@ pytest -q                                  # this is the public check; no key, n
 - An unsubscribe is marked DO NOT CONTACT, and spam gets no draft.
 - The sheet is sorted by score, has an empty `review_decision` column, and is Excel-safe.
 
+## Important files
+
+Each file in `app/` has one job. HTTP stays at the edge. Personal data, validation, and retries are plain Python so a bad model answer can be stopped before it reaches a salesperson.
+
+**`app/main.py`**
+The HTTP entry. `POST /v1/leads/qualify` accepts one lead, and the run routes return the cost summary and the stored results.
+A shared API key protects those routes. If the provider rejects the key or has no credit, the request returns 502 so the whole run stops.
+
+**`app/schemas.py`**
+The shapes on the wire: one inbound lead, and a response that is either qualified (intent, score, reason, draft) or quarantined with errors.
+Extra CSV columns are dropped here, so a new field cannot reach the model by accident.
+
+**`app/config.py`**
+All settings come from the environment: which models to call, in order, and the caps on tokens, attempts, and spend.
+The primary model is first and the fallback is second. Secrets are read as secrets and are never written into logs.
+
+**`app/service.py`**
+Runs one lead from the raw row to a stored result. This is the only function that sees both the contact details and the model output.
+It normalises email and phone, links duplicates, builds the view the model is allowed to see, adds the greeting locally, and saves a record with no name, email, or phone.
+
+**`app/pii.py`**
+Decides what the model may see. The allowlist is company, job title, city, country, source, and a scrubbed message.
+Emails, links, long numbers, and names are removed, and the exact outgoing text is checked again before every call, including a repair turn. Duplicate detection stores an HMAC of the email or phone, not the value itself.
+
+**`app/prompts.py`**
+The system prompt, the lead prompt, and the repair prompt that sends the validation errors back to the model.
+The lead message is fenced as untrusted text. The model's own answer is scrubbed before a repair turn so an invented email or phone is not sent back.
+
+**`app/contract.py`**
+One pydantic model, `LeadQualification`, is both the JSON schema sent to the model and the check applied to its answer.
+Cosmetic problems are repaired here (code fences, `"8"` as a number, greeting lines). If the meaning is still wrong, the errors are returned for a retry.
+
+**`app/rules.py`**
+The checks a JSON schema cannot express: allowed intents, a score of 1 or 2 for spam and unsubscribe, and no prices, discounts, links, or `[NAME]` placeholders in the draft.
+This is why an answer that is valid JSON and still says "score 10, offer 90% off" is rejected.
+
+**`app/qualifier.py`**
+The retry loop for one lead. A bad answer is sent back to the same model with the exact errors, then the next model in config is tried.
+Timeouts and rate limits back off without using up a validation attempt. A lead that still fails is quarantined and does not receive a qualification.
+
+**`app/llm.py`**
+One OpenAI-compatible chat call. It classifies the HTTP result so the retry loop knows whether to wait, switch model, or stop the run.
+It records the model that answered, the token counts, and the cost. If the provider omits cost, a price table is used, and an unknown cost stays unknown.
+
+**`app/llm_types.py`**
+The small types shared by that call: token counts, cost, and the error kinds the retry loop branches on.
+The shared rate limiter and the per-model circuit breaker live here, so concurrent requests stay under one limit.
+
+**`app/store.py`**
+SQLite for one run. It keeps the public result, every call's model, tokens, and cost, and the hashes used to link duplicates and colleagues at the same company.
+It does not store a name, email, phone, or greeting. The summary adds the calls up and projects that rate to 8,000 leads a month.
+
 ## Sample output
 
 `samples/<run_id>/` holds one real run: `review.csv`, `quarantine.csv`, `run_summary.json` (the cost summary) and `per_lead_log.jsonl` (every call's model, tokens and cost).
@@ -76,8 +128,3 @@ pytest -q                                  # this is the public check; no key, n
 - **State is per process:** the rate limiter, circuit breaker and SQLite store. Run a single worker for this POC.
 - **Drafts are English only.** Webhook auth is a shared token.
 - **Not done:** CRM integration, an evaluation set, a queue. <!-- TODO: screen recording -->
-
-## Use of AI coding assistants
-
-<!-- TODO: rewrite in your own words; you will be asked about the code. -->
-I used Claude (Anthropic) to draft the code, tests and this README from my requirements. I reviewed and ran it, and I changed or decided myself: _[fill in]_.
